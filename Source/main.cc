@@ -22,14 +22,20 @@ int main(int argc,char* argv[]) {
 	//Create your problem map object (in our example, we use a simple grid, you should create your own)
 
 	Utilities::ProblemMap p(first_problem);
-	vector<Path*> paths = p.test_algorithm();
+	vector<Path*> paths = p.lees();
 	for(unsigned i = 0; i<paths.size(); ++i) {
 		cout<<"Path "<<i<<": ";
 		paths.at(i)->print();
-		Path* temp = paths.at(i);
-		delete temp;
 	}
-	paths.clear();
+
+	vector<Path*> post_processed_paths = p.post_process();
+	cout<<endl;
+	for(unsigned i = 0; i<post_processed_paths.size(); ++i) {
+		cout<<"Post-Processed Path "<<i<<": ";
+		post_processed_paths.at(i)->print();
+	}
+	cout<<endl;
+	delete first_problem;
 	//testing code
 	// for(int j = 0; j<p.get_width(); ++j) {
 	// 	cout<<' '<<j;
