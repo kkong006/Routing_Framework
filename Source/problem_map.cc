@@ -148,13 +148,21 @@ Parameter sink(Point): sink Point that is used as an ending point to test if
 the sink has been reached.
 */
 void Utilities::ProblemMap::assign_cost(Point source, Point sink) {
+	if(source.x<0 || source.y<0 || sink.x>=get_width() || sink.y>=get_height()) {
+		claim("The source and/or the sink are located outside of the map", kWarning);
+		return;
+	}
+	if(blocker_map.at(source.x).at(source.y) || blocker_map.at(sink.x).at(sink.y)) {
+		claim("The source and/or the sink are located inside a blocker", kWarning);
+		return;
+	}
 	if(!(source == sink)) {
 		vector<Node*> curr_ring;
 		curr_ring.push_back(get_node(source));
 		get_node(source)->set_cost(-1);
 		int cost = 1;
 		bool done = false;
-		while(!done) {
+		while(!done && curr_ring.size() != 0) {
 			vector<Node*> next_ring;
 			for(unsigned i = 0; i<curr_ring.size(); ++i) {
 				for(unsigned j = 0; j<curr_ring.at(i)->connections_size(); ++j) {
@@ -162,6 +170,7 @@ void Utilities::ProblemMap::assign_cost(Point source, Point sink) {
 					if(!blocker_map.at(next->get_x()).at(next->get_y())
 					&& next->get_cost() == 0) {
 						next->set_cost(cost);
+
 						next_ring.push_back(next);
 						if(next == get_node(sink)) {
 							done = true;
@@ -171,6 +180,9 @@ void Utilities::ProblemMap::assign_cost(Point source, Point sink) {
 			}
 			curr_ring = next_ring;
 			cost++;
+		}
+		if(curr_ring.size() == 0) {
+			claim("There is no valid path from the source to the sink", kWarning);
 		}
 	}
 }
@@ -199,30 +211,36 @@ backtracing.
 */
 Path* Utilities::ProblemMap::backtrace(Point source, Point sink) {
 	Path* path = new Path();
-	path->set_source(source);
-	path->set_sink(sink);
-	if(source == sink) {
-		path->add_segment(sink, source);
-	}
-	else {
-		Node* source_node = get_node(source);
-		Node* curr = get_node(sink);
-		bool added_segment = false;
-		int curr_cost = curr->get_cost();
-		for(int i = get_node(sink)->get_cost(); i>0; --i) {
-			added_segment = false;
-			if(i==1) {
-				path->add_segment(curr->get_coord(), source);
-				added_segment = true;
+	if(source.x>0 && source.y>0 && sink.x<get_width() && sink.y<get_height())
+	{
+		if(!blocker_map.at(source.x).at(source.y) && !blocker_map.at(sink.x).at(sink.y)
+			&& get_node(sink)->get_cost() != 0){
+			path->set_source(source);
+			path->set_sink(sink);
+			if(source == sink) {
+				path->add_segment(sink, source);
 			}
 			else {
-				for(unsigned j = 0; j<curr->connections_size(); ++j) {
-					Node* next = curr->connections_at(j)->get_tail();
-					if(next->get_cost() == (curr_cost-1) && !added_segment) {
-						path->add_segment(curr->get_coord(), next->get_coord());
-						curr = next;
+				Node* source_node = get_node(source);
+				Node* curr = get_node(sink);
+				bool added_segment = false;
+				int curr_cost = curr->get_cost();
+				for(int i = get_node(sink)->get_cost(); i>0; --i) {
+					added_segment = false;
+					if(i==1) {
+						path->add_segment(curr->get_coord(), source);
 						added_segment = true;
-						--curr_cost;
+					}
+					else {
+						for(unsigned j = 0; j<curr->connections_size(); ++j) {
+							Node* next = curr->connections_at(j)->get_tail();
+							if(next->get_cost() == (curr_cost-1) && !added_segment) {
+								path->add_segment(curr->get_coord(), next->get_coord());
+								curr = next;
+								added_segment = true;
+								--curr_cost;
+							}
+						}
 					}
 				}
 			}
@@ -254,91 +272,92 @@ vector<Path*> Utilities::ProblemMap::post_process() {
 
 	vector<Path*> ret_paths;
 	for(unsigned i = 0; i<paths.size(); ++i) {
-		std::cout<<"\nPost-Processed Visual Guide for Path "<<i<<':'<<endl;
-		Path* post = new Path();
-		Point start = paths.at(i)->get_sink();
-		Point end = start;
-		if(paths.at(i)->get_sink() == paths.at(i)->get_source()) {
-			std::cout<<FLAG_ZERO_LENGTH<<'('<<start.x<<", "<<start.y<<") -> "
-				<<'('<<end.x<<", "<<end.y<<')'<<endl;
-			post->add_segment(start, end);
-		}
-
-
-		bool up_down = false;
-		bool left_right = false;
-		for(unsigned j = 0; j<paths.at(i)->size(); ++j) {
-			if(up_down == left_right) {
-				if(paths.at(i)->at(j)->get_source().x == paths.at(i)->at(j)->get_sink().x) {
-					end = paths.at(i)->at(j)->get_sink();
-					up_down = true;
-				}
-				else {
-					end = paths.at(i)->at(j)->get_sink();
-					left_right = true;
-				}
-			}
-			else if(paths.at(i)->at(j)->get_sink()== paths.at(i)->get_source()) {
-				if(left_right) {
-					if(paths.at(i)->at(j)->get_source().y == paths.at(i)->at(j)->get_sink().y) {
-						end = paths.at(i)->at(j)->get_sink();
-					}
-					else {
-						std::cout<<FLAG_LEFT_RIGHT<<'('<<start.x<<", "<<start.y<<") -> "
-							<<'('<<end.x<<", "<<end.y<<')'<<endl;
-						post->add_segment(start, end);
-						start = end;
-						end = paths.at(i)->at(j)->get_sink();
-					}
-				}
-				else if(up_down) {
-					if(paths.at(i)->at(j)->get_source().x == paths.at(i)->at(j)->get_sink().x) {
-						end = paths.at(i)->at(j)->get_sink();
-					}
-					else {
-						std::cout<<FLAG_UP_DOWN<<'('<<start.x<<", "<<start.y<<") -> "
-							<<'('<<end.x<<", "<<end.y<<')'<<endl;
-						post->add_segment(start, end);
-						start = end;
-						end = paths.at(i)->at(j)->get_sink();
-					}
-				}
-				post->add_segment(start, end);
-				(up_down)?std::cout<<FLAG_UP_DOWN:std::cout<<FLAG_LEFT_RIGHT;
-				std::cout<<'('<<start.x<<", "<<start.y<<") -> "<<'('<<end.x<<", "<<end.y<<')'<<endl;
-			}
-			else if(up_down) {
-				if(paths.at(i)->at(j)->get_source().x == paths.at(i)->at(j)->get_sink().x) {
-					end = paths.at(i)->at(j)->get_sink();
-				}
-				else {
-					std::cout<<FLAG_UP_DOWN<<'('<<start.x<<", "<<start.y<<") -> "
+		if(!(paths.at(i)->get_sink() == paths.at(i)->get_source())) {
+				std::cout<<"\nPost-Processed Visual Guide for Path "<<i<<':'<<endl;
+				Path* post = new Path();
+				Point start = paths.at(i)->get_sink();
+				Point end = start;
+				if(paths.at(i)->get_sink() == paths.at(i)->get_source()) {
+					std::cout<<FLAG_ZERO_LENGTH<<'('<<start.x<<", "<<start.y<<") -> "
 						<<'('<<end.x<<", "<<end.y<<')'<<endl;
 					post->add_segment(start, end);
-					start = end;
-					end = paths.at(i)->at(j)->get_sink();
-					up_down = false;
-					left_right = true;
 				}
-			}
-			else if(left_right) {
-				if(paths.at(i)->at(j)->get_source().y == paths.at(i)->at(j)->get_sink().y) {
-					end = paths.at(i)->at(j)->get_sink();
+				bool up_down = false;
+				bool left_right = false;
+				for(unsigned j = 0; j<paths.at(i)->size(); ++j) {
+					if(up_down == left_right) {
+						if(paths.at(i)->at(j)->get_source().x == paths.at(i)->at(j)->get_sink().x) {
+							end = paths.at(i)->at(j)->get_sink();
+							up_down = true;
+						}
+						else {
+							end = paths.at(i)->at(j)->get_sink();
+							left_right = true;
+						}
+					}
+					else if(paths.at(i)->at(j)->get_sink()== paths.at(i)->get_source()) {
+						if(left_right) {
+							if(paths.at(i)->at(j)->get_source().y == paths.at(i)->at(j)->get_sink().y) {
+								end = paths.at(i)->at(j)->get_sink();
+							}
+							else {
+								std::cout<<FLAG_LEFT_RIGHT<<'('<<start.x<<", "<<start.y<<") -> "
+									<<'('<<end.x<<", "<<end.y<<')'<<endl;
+								post->add_segment(start, end);
+								start = end;
+								end = paths.at(i)->at(j)->get_sink();
+							}
+						}
+						else if(up_down) {
+							if(paths.at(i)->at(j)->get_source().x == paths.at(i)->at(j)->get_sink().x) {
+								end = paths.at(i)->at(j)->get_sink();
+							}
+							else {
+								std::cout<<FLAG_UP_DOWN<<'('<<start.x<<", "<<start.y<<") -> "
+									<<'('<<end.x<<", "<<end.y<<')'<<endl;
+								post->add_segment(start, end);
+								start = end;
+								end = paths.at(i)->at(j)->get_sink();
+							}
+						}
+						post->add_segment(start, end);
+						(up_down)?std::cout<<FLAG_UP_DOWN:std::cout<<FLAG_LEFT_RIGHT;
+						std::cout<<'('<<start.x<<", "<<start.y<<") -> "<<'('<<end.x<<", "<<end.y<<')'<<endl;
+					}
+					else if(up_down) {
+						if(paths.at(i)->at(j)->get_source().x == paths.at(i)->at(j)->get_sink().x) {
+							end = paths.at(i)->at(j)->get_sink();
+						}
+						else {
+							std::cout<<FLAG_UP_DOWN<<'('<<start.x<<", "<<start.y<<") -> "
+								<<'('<<end.x<<", "<<end.y<<')'<<endl;
+							post->add_segment(start, end);
+							start = end;
+							end = paths.at(i)->at(j)->get_sink();
+							up_down = false;
+							left_right = true;
+						}
+					}
+					else if(left_right) {
+						if(paths.at(i)->at(j)->get_source().y == paths.at(i)->at(j)->get_sink().y) {
+							end = paths.at(i)->at(j)->get_sink();
 
-				}
-				else {
-					std::cout<<FLAG_LEFT_RIGHT<<'('<<start.x<<", "<<start.y<<") -> "
-						<<'('<<end.x<<", "<<end.y<<')'<<endl;
-					post->add_segment(start, end);
+						}
+						else {
+							std::cout<<FLAG_LEFT_RIGHT<<'('<<start.x<<", "<<start.y<<") -> "
+								<<'('<<end.x<<", "<<end.y<<')'<<endl;
+							post->add_segment(start, end);
 
-					start = end;
-					end = paths.at(i)->at(j)->get_sink();
-					up_down = true;
-					left_right = false;
+							start = end;
+							end = paths.at(i)->at(j)->get_sink();
+							up_down = true;
+							left_right = false;
+						}
+					}
 				}
+				ret_paths.push_back(post);
 			}
-		}
-		ret_paths.push_back(post);
+
 	}
 	return ret_paths;
 }
