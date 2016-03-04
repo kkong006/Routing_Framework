@@ -29,7 +29,7 @@ int main(int argc,char* argv[]) {
 	}
 
 	vector<Path*> post_processed_paths = p.post_process();
-	cout<<endl;
+	cout<<'\n'<<endl;
 	for(unsigned i = 0; i<post_processed_paths.size(); ++i) {
 		cout<<"Post-Processed Path "<<i<<": ";
 		post_processed_paths.at(i)->print();
