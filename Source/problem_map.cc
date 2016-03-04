@@ -169,9 +169,7 @@ void Utilities::ProblemMap::assign_cost(Point source, Point sink) {
 					Node* next = curr_ring.at(i)->connections_at(j)->get_tail();
 					if(!blocker_map.at(next->get_x()).at(next->get_y())
 					&& next->get_cost() == 0) {
-						next->set_cost(cost);
-
-						next_ring.push_back(next);
+						next->set_cost(cost);					next_ring.push_back(next);
 						if(next == get_node(sink)) {
 							done = true;
 						}
@@ -184,6 +182,9 @@ void Utilities::ProblemMap::assign_cost(Point source, Point sink) {
 		if(curr_ring.size() == 0) {
 			claim("There is no valid path from the source to the sink", kWarning);
 		}
+	}
+	else {
+		get_node(source)->set_cost(-1);
 	}
 }
 /*
@@ -211,10 +212,8 @@ backtracing.
 */
 Path* Utilities::ProblemMap::backtrace(Point source, Point sink) {
 	Path* path = new Path();
-	if(source.x>0 && source.y>0 && sink.x<get_width() && sink.y<get_height())
-	{
-		if(!blocker_map.at(source.x).at(source.y) && !blocker_map.at(sink.x).at(sink.y)
-			&& get_node(sink)->get_cost() != 0){
+	if(source.x>=0 && source.y>=0 && sink.x<get_width() && sink.y<get_height()){
+		if(get_node(sink)->get_cost() != 0) {
 			path->set_source(source);
 			path->set_sink(sink);
 			if(source == sink) {
@@ -322,7 +321,7 @@ vector<Path*> Utilities::ProblemMap::post_process() {
 						}
 						post->add_segment(start, end);
 						(up_down)?std::cout<<FLAG_UP_DOWN:std::cout<<FLAG_LEFT_RIGHT;
-						std::cout<<'('<<start.x<<", "<<start.y<<") -> "<<'('<<end.x<<", "<<end.y<<')'<<endl;
+						std::cout<<'('<<start.x<<", "<<start.y<<") -> "<<'('<<end.x<<", "<<end.y<<')';
 					}
 					else if(up_down) {
 						if(paths.at(i)->at(j)->get_source().x == paths.at(i)->at(j)->get_sink().x) {
